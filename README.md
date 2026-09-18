@@ -1,76 +1,71 @@
-# jahresarbeit_2026_jacob_glathe
-# Farbsortieranlage für Tischtennisbälle
+# Modulare Farbsortieranlage für Tischtennisbälle
 
 **NWT-Jahresarbeit (Naturwissenschaft und Technik)**  
-Entwicklung eines automatisierten, getakteten Sortiersystems auf Basis eines ESP32-Mikrocontrollers.
+Entwicklung einer automatisierten Sortieranlage mit endlos umlaufendem Gliederband, ESP32-Steuerung und digitalem Daten-Tracking.
 
 ---
 
 ## Über das Projekt
 
-In unserer diesjährigen NWT-Jahresarbeit bauen wir eine vollautomatische Sortieranlage für Tischtennisbälle. Die Anlage soll Bälle anhand ihrer Farbe erkennen und präzise in separate Auffangbehälter sortieren.
+Im Rahmen unserer diesjährigen NWT-Jahresarbeit entwickeln wir eine vollautomatische Sortieranlage für Standard-Tischtennisbälle (40 mm Durchmesser). Die Anlage erkennt Bälle anhand ihrer Oberflächenfarbe und wirft sie zielsicher an der passenden Station in Auffangbehälter ab.
 
-Beim Entwurf war uns wichtig, nicht einfach eine simple Bastellösung zu bauen, sondern ein System zu entwickeln, das echten industriellen Standards folgt. Die größte Herausforderung dabei: Das System muss modular sein. Wir starten aktuell mit zwei Farben, aber die gesamte Mechanik, Elektronik und Software ist so ausgelegt, dass man später problemlos weitere Farben und Stationen hinzufügen kann, ohne das Projekt von Grund auf neu zu planen.
+Das Herzstück der Mechanik ist ein **endlos umlaufendes Förderband**, das vollständig aus **selbst konstruierten, 3D-gedruckten Kettengliedern** besteht. Das Band fährt nicht vor und zurück, sondern dreht sich wie ein industrielles Förderband kontinuierlich in eine Richtung im Takt vorwärts. 
 
----
-
-## Die Kernidee: Digitales Tracking statt Sensor-Chaos
-
-Ein typischer Anfängerfehler bei solchen Projekten ist es, an jeder einzelnen Auswurfstation einen eigenen Farbsensor zu montieren. Das ist teuer, fehleranfällig und lässt sich schlecht erweitern.
-
-Wir haben uns für einen smarteren Weg entschieden:
-1. **Ein zentraler Farbsensor** ganz am Anfang der Strecke misst die Farbe des Balls genau einmal.
-2. **Ein virtuelles Schieberegister im ESP32:** Der Mikrocontroller speichert das gesamte Förderband als eine Kette von Positionen im Speicher. Wenn das Band einen Schritt vorfährt, rücken auch die Farbwerte im Programm exakt eine Position weiter.
-3. **Gezielter Auswurf:** Jede Station prüft nur, ob an ihrer Position im Speicher gerade die passende Farbe liegt. Wenn ja, drückt ein Servomotor den Ball vom Band.
-
-Durch diesen Ansatz benötigt das System immer nur einen Sensor, ganz egal ob wir am Ende 2, 4 oder 10 Farben sortieren.
+Bereits sortierte oder leere Fächer laufen an der Unterseite der Anlage einfach wieder zurück zum Start, wo über ein Magazin neue Bälle nachrutschen können.
 
 ---
 
-## Wie das System aufgebaut ist
+## Die Kernmechanik: 3D-gedruckte Kettenglieder mit Klicksystem
 
-### Mechanik und Antrieb
-* **Getaktetes Förderband:** Statt eines glatten, rutschigen Bands nutzen wir ein Band mit festen Fächern im Abstand von 75 mm. So hat jeder Ball seinen festen Platz.
-* **Schrittmotor (NEMA 17):** Ein normaler Gleichstrommotor läuft nach dem Abschalten immer ein Stück nach. Wir setzen stattdessen auf einen Schrittmotor, dem wir auf den Millimeter genau sagen können: *„Fahre exakt 75 mm vor und bleibe stehen.“*
-* **Auswurfmechanik:** Kleine Servomotoren bewegen Stößel, die den Ball im richtigen Moment seitlich vom Band in eine Rutsche befördern.
+Statt ein vorgefertigtes Gummiband zu verwenden, auf dem Bälle wegrollen könnten, haben wir ein eigenes modulares Kettensystem in OpenSCAD konstruiert:
 
-### Elektronik und Schaltung
-* **Gehirn:** Ein ESP32 NodeMCU. Er ist schnell, hat ausreichend Speicher und bringt alle nötigen Schnittstellen mit.
-* **Sensorik:** Ein TCS34725 Farbsensor. Er verfügt über eine integrierte weiße LED und wird in einem lichtdichten Gehäuse verbaut, damit Tageslicht oder Schatten im Raum die Messergebnisse nicht verfälschen.
-* **Aktorik-Erweiterung (I2C):** Alle Servomotoren werden über ein PCA9685 PWM-Treiberboard gesteuert. Das Geniale daran: Wir steuern bis zu 16 Servos über dieselben zwei Datenleitungen wie den Farbsensor. Dem ESP32 gehen also nie die Pins aus.
-* **Saubere Stromversorgung:** Motoren und Servos ziehen bei Bewegung viel Strom und erzeugen Störspitzen. Deshalb sind die Stromkreise für die Motoren (12V/5V) und die Steuerung (3,3V Logik) getrennt aufgebaut, teilen sich aber eine gemeinsame Masse (Common Ground).
+* **Snap-Fit Klicksystem:** Jedes Kettenglied besitzt an der Vorderseite einen robusten Gelenkbolzen und an der Rückseite federnde Schnappklauen. Die Glieder lassen sich ohne zusätzliches Werkzeug zu einer beliebig langen Endloskette ineinanderklicken und bei Bedarf über integrierte Hebelkerben wieder lösen.
+* **Formschlüssige Kugelmulde:** Jedes Glied hat eine exakt berechnete Mulde mit 1,5 mm Spielraum, in der der Ball während der Taktbewegung erschütterungsfrei ruht.
+* **Durchgehender Auswurfkanal:** Eine seitliche Aussparung im Glied erlaubt es dem servo-betriebenen Stößel, den Ball im 90-Grad-Winkel sauber und ohne Klemmen vom Band in die Sortierrutsche zu schieben.
+* **Schwenkfreiraum:** An den Kanten der Glieder sind Freiwinkel eingelassen, damit die Kette sauber um die Antriebs- und Umlenkrollen an den Bandenden kurven kann.
 
 ---
 
-## Der Ablauf im laufenden Betrieb
+## Die Software-Logik: Digitales Tracking im Umlauf
 
-Sobald das System eingeschaltet ist, wiederholt es kontinuierlich fünf Schritte:
+Anstatt an jeder Station teure Sensoren zu montieren, arbeitet das System mit einer zentralen Messstelle und einem virtuellen Schieberegister im ESP32:
 
-1. **Vorfahren:** Der Schrittmotor bewegt das Band um genau ein Fach weiter und hält die Position aktiv fest.
-2. **Daten weiterrücken:** Im internen Speicher rücken alle bisherigen Ball-Positionen um einen Index weiter.
-3. **Messen:** Der Farbsensor liest den neu eingefahrenen Ball an Station 0 ein und speichert dessen Farbwert am Index 0 ab.
-4. **Auswerfen:** Der ESP32 prüft alle Stationen gleichzeitig. Liegt an Station 1 ein roter Ball, schlägt Servo 1 aus. Liegt an Station 2 ein weißer Ball, schlägt Servo 2 aus.
-5. **Rückstellung:** Die Servos fahren in die Ausgangsposition zurück und das Band ist bereit für den nächsten Schritt.
+1. **Ein zentraler Farbsensor (TCS34725):** Ganz am Anfang der oberen Förderstrecke (Station 0) wird die Farbe jedes ankommenden Balls genau einmal präzise erfasst.
+2. **Daten-Shift im Speicher:** Der ESP32 speichert den Zustand aller sichtbaren Fächer in einem Array. Mit jedem Vorwärtsschritt des Bands rücken alle Datenwerte im Speicher exakt einen Index weiter.
+3. **Selektiver Auswurf:** Jede Station prüft nur ihren eigenen Index:
+   * Station 1 prüft Index 1: Liegt hier z. B. Rot? Wenn ja, drückt Servo 1 den Ball aus dem Fach.
+   * Station 2 prüft Index 2: Liegt hier z. B. Weiß? Wenn ja, drückt Servo 2 den Ball aus dem Fach.
+4. **Endloser Rücklauf:** Das nun leere Kettenglied wird als LEER markiert, läuft über die Umlenkrolle an der Unterseite zurück zum Magazin und wird dort neu beladen.
 
----
-
-## Aufbau dieses Repositories
-
-Die gesamte Planung und Entwicklung ist in diesem Repository dokumentiert und in mehrere Bereiche gegliedert:
-
-* **docs/SYSTEM_PLANUNG.md**  
-  Die ausführliche technische Planung mit allen mathematischen Berechnungen, Geometriedaten und der Software-Architektur.
-* **docs/HARDWARE_BOM.md**  
-  Die vollständige Stückliste (Bill of Materials) inklusive aller Bauteile, Spezifikationen und der Pin-Belegung für den ESP32.
-* **docs/AUSFUEHRUNGSPLAN.md**  
-  Unser Schritt-für-Schritt-Fahrplan von den ersten Versuchen auf dem Breadboard über die CAD-Konstruktion bis hin zur finalen Testmatrix und Fehlerbehandlung.
-* **src/**  
-  Der Quellcode für den ESP32 (folgt in Phase 3/4).
-* **cad/**  
-  Die 3D-Druck-Dateien für Bandglieder, Sensorgehäuse und Auswurfmechanismen.
+Dieses Konzept ist modular: Sollen später 4 oder 5 Farben sortiert werden, wird einfach die Kette verlängert und in der Software ein weiterer Auswurf-Index zugewiesen.
 
 ---
 
-## Projektstatus
+## Hardware- und Elektronik-Aufbau
 
-Wir befinden uns aktuell in der Umsetzungsphase gemäß unserem Ausführungsplan. Die Sensor-Kalibrierung und die Elektroniktests laufen parallel zum 3D-Druck der ersten Bandelemente.
+* **Mikrocontroller:** ESP32 NodeMCU (zuständig für Taktschritte, Farbanalyse und Koordination der Servos).
+* **Antrieb (Band):** NEMA 17 Schrittmotor über TMC2209/A4988 Treiber. Der Schrittmotor garantiert, dass das Band pro Takt exakt den Abstand von Fach zu Fach (75 mm) vorfährt und beim Stillstand aktiv gehalten wird.
+* **Auswurf-Aktorik:** Servomotoren (z. B. MG90S mit Metallgetriebe), die über ein PCA9685 16-Kanal I2C-Servoboard angesteuert werden. Dadurch bleiben fast alle Pins des ESP32 frei.
+* **Spannungsversorgung:** Zweikreis-System mit getrennter 12V/5V-Versorgung für Motor und Servos sowie 3,3V für Logik und Sensoren (verbunden über einen gemeinsamen Massebezug / Common Ground).
+
+---
+
+## Der kontinuierliche Taktzyklus
+
+Im laufenden Betrieb wiederholt das System in einer festen Schleife folgende Schritte:
+
+```text
+[ SCHRITT 1: VORWÄRTS-TAKT ]
+Schrittmotor dreht das Endlosband exakt 75 mm vor und blockiert die Position.
+
+[ SCHRITT 2: DATEN-VERSCHIEBUNG ]
+Das Array im ESP32 rückt alle Ball-Zustände um einen Platz weiter.
+
+[ SCHRITT 3: MESSUNG ]
+Der Farbsensor an Station 0 scannt den neu eingetroffenen Ball und schreibt das Ergebnis an Index 0.
+
+[ SCHRITT 4: AUSWURF ]
+Die Stationen prüfen zeitgleich ihre Indizes. Übereinstimmende Bälle werden parallel über Servos ausgeworfen.
+
+[ SCHRITT 5: RÜCKSTELLUNG ]
+Die Servos fahren zurück. Leere Kettenglieder laufen im Rücklaufkanal unten zurück zum Start.
